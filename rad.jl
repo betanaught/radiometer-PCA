@@ -1,3 +1,6 @@
+"""
+    Import and Wrangle Data ----------------------------------------------------
+"""
 using CSV, DataFrames
 
 sensor1_data = CSV.read("data/rad_sensor1.csv", DataFrame)
@@ -10,9 +13,23 @@ sum(completecases(sensor1_data, [:"Turbidity, FNU"]))
 sum(completecases(sensor1_data, [:"azimuth"]))
 completecases(sensor1_data, names(sensor1_data)[1:20])
 
+# Show number of missing values for non-wavelength columns
 for i in 1:20
     col_name = names(sensor1_data)[i]
     not_missing = sum(completecases(sensor1_data, i))
-    num_missing = length(sensor1_data[!, i]) - num_present
+    num_missing = length(sensor1_data[!, i]) - not_missing
     println(col_name, " - ", num_missing)
 end
+
+"""
+    Principal Component Analysis -----------------------------------------------
+"""
+using Statistics, StatsBase, MultivariateStats
+using Plots
+
+s1_pca_data = transpose(Matrix(dropmissing(sensor1_data[:, 10:end])))
+s1_fit = fit(PCA, s1_pca_data, maxoutdim = 10)
+
+scatter(s1_fit.prinvars, legend = false)
+
+loaded_waves = sortperm(abs.(s1_fit.proj[:, 1]), rev = true)
