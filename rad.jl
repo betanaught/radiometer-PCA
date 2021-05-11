@@ -33,6 +33,8 @@ s1_fit.proj
 
 scatter(s1_fit.prinvars, legend = false)
 
+# Very few PCs -> Sanity Check: confirm a few wavelengths are highly correlated
+
 loaded_waves = sortperm(abs.(s1_fit.proj[:, 1]), rev = true)
 
 using GLM
