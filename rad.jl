@@ -27,9 +27,14 @@ end
 using Statistics, StatsBase, MultivariateStats
 using Plots
 
-s1_pca_data = transpose(Matrix(dropmissing(sensor1_data[:, 10:end])))
+s1_pca_data = transpose(Matrix(dropmissing(sensor1_data[:, 20:end])))
 s1_fit = fit(PCA, s1_pca_data, maxoutdim = 10)
+s1_fit.proj
 
 scatter(s1_fit.prinvars, legend = false)
 
 loaded_waves = sortperm(abs.(s1_fit.proj[:, 1]), rev = true)
+
+using GLM
+
+# lm1 = lm(@formula(Y ~ X), data)
