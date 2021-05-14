@@ -134,7 +134,7 @@ pca_s2_data = transpose(Matrix(sensor2_data[:, 20:end]))
 fit_s2 = fit(PCA, pca_s2_data, maxoutdim = 10)
 fit_s2.proj
 ```
-```julia, echo = false, results = false;
+```julia
 pc1_s1 = MultivariateStats.transform(fit_s1, pca_s1_data)'[:, 1]
 pc2_s1 = MultivariateStats.transform(fit_s1, pca_s1_data)'[:, 2]
 
@@ -153,7 +153,7 @@ Very interesting bivariate characteristics, which could have something to do wit
 
 # Principal Component Regression
 Prepare DataFrames for PCR:
-```julia, echo = false, results = false,
+```julia
 using GLM
 # Top 5 wavelengths
 names(sensor1_data)[loaded_waves_s1[1:5] .+ 20] # λ columns start at index 20
