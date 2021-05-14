@@ -5,17 +5,16 @@ using CSV, DataFrames
 
 sensor1_data = CSV.read("data/rad_sensor1.csv", DataFrame)
 sensor2_data = CSV.read("data/rad_sensor2.csv", DataFrame)
+full_data = CSV.read("data/rad_all.csv", DataFrame)
 
 show(names(sensor1_data)[1:20])
-showcols(sensor1_data)
+sensor1_data
 sensor1_data[1:10, ["datetime_15", "datetime_5", "Turbidity, FNU"]]
 
-length()
 sum(completecases(sensor1_data, [:"Turbidity, FNU"]))
 sum(completecases(sensor1_data, [:"azimuth"]))
 completecases(sensor1_data, names(sensor1_data)[1:20])
 
-# TODO: add wrangling steps to split s1/s2 data from single table
 # TODO: filter values by day/night WHERE 70 > "azimuth" > 290
 # TODO: standardize data values
 
@@ -58,7 +57,7 @@ using Statistics, StatsBase, MultivariateStats
 
 transpose(Matrix(sensor1_data[:, 20:end]))
 
-pca_s1_data = transpose(Matrix(sensor1_data[:, 20:end]))
+pca_S1_data = transpose(Matrix(sensor1_data[:, 20:end]))
 fit_s1 = fit(PCA, pca_s1_data, maxoutdim = 10)
 fit_s1.proj
 
