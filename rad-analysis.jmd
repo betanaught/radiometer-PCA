@@ -1,0 +1,228 @@
+---
+title: TriOS RAMSES Radiometer PCA and Water Chemistry Regression
+author: Brendan Wakefield
+date: 14 May 2021
+---
+# Project Summary
+The purpose of this project was to construct an analysis pipeline for performing a Principal Component Analysis (PCA) on the raw hyperspectral data exported from [TriOS RAMSES](https://www.trios.de/en/ramses.html) radiometer sensors and subsequent linear regerssion of water chemistry constituents on the principal components using the Julia language. The data was collected during a summer deployment of two sensors (`sensor_1` and `sensor_2`) on the Delaware River from August 13 - October 27, 2020. This was a trial deployment by the USGS and NASA to test a real-time data pipeline developed by the USGS California Water Science Center (CAWSC, housed right on CSUS capus!), assessing the feasability of reporting measurements within 30 minutes of being recorded (this pipeline involves a PostgreSQL database in AWS RDS and a live Tableau Server dashboard for user-access to the data).
+
+The raw radiometer data was not as processed as is usually the case in radiometer deployments due to the project being centered around feasability. For example, TriOS RAMSES sensors are specifically designed to measure "water-leaving radiance," which is the amount of photons being radiated *out* of the water after absorption. This measurement is highly confounded by light reflectance off the surface and scattered light in the atmostphere, so ideal deployments use three sensors and an algorithm to filter the measurements to corrected spectrograms. In this project, however, only two sensors were deployed, and no filtering algorithm was applied to the data. So the three data sets referenced in the code are from `sensor_1` (pointed up 45° towards the sky), `sensor_2` (pointed down, 45°, at the water's surface). and `full_data`, which is a UNION of the two data sets. The two sensors measure offset wavelengths in their respective spectrograms (so, `sensor_1` measures λ = 315, 317, 319, ... nm; `sensor_2` measures λ = 316, 318, 320, ... nm)
+
+Nevertheless, I was interested in using this raw data to design an analysis capable of handling the raw output data from the sensors and perform a PCA and regression using Julia. The code I developed successfully reads the data from either the individual sensors or the combined set, performs a PCA, and has code for regressing individual water chemistry constituents against the principal components and/or the wavelengths (λ) with the highest loadings.
+
+There is a large amount of coliearity between the individual wavelengths (the intensities of adjacent wavelengths such as 415 nm and 417 nm are nearly perfectly correlated), which makes sense because the general shape of spectra are similar accross timestamps. Because of this, PCAs on both data sets extracted two principal components, each, explaining ~ 99% of the heterogeneity in the spectral data. As I researched PCA and principal component regression (PCR), I learned that these spectral characteristics make PCA and PCR very common techniques for spectral data sets (see References).
+
+The full code is in `rad.jl`. The data files are `rad_sensor1.csv`, `rad_sensor2.csv`, and `full_data.csv`.
+
+# Data Import and Preprocessing
+```julia #, echo = true, results = false, term = false
+using CSV, DataFrames
+
+sensor1_data = CSV.read("data/rad_sensor1.csv", DataFrame)
+sensor2_data = CSV.read("data/rad_sensor2.csv", DataFrame)
+full_data = CSV.read("data/rad_all.csv", DataFrame)
+
+full_data[full_data[:, "sensor_id"].==1, :] # full_data WHERE sensor_id == 1
+
+show(names(sensor1_data)[1:20])
+sensor1_data
+sensor1_data[1:10, ["datetime_15", "datetime_5", "Turbidity, FNU"]]
+
+sum(completecases(sensor1_data, [:"Turbidity, FNU"]))
+sum(completecases(sensor1_data, [:"azimuth"]))
+completecases(sensor1_data, names(sensor1_data)[1:20])
+
+# Show number of missing values for non-wavelength columns
+function show_missing(df)
+    for i in 1:20
+        col_name = names(df)[i]
+        not_missing = sum(completecases(df, i))
+        num_missing = length(df[!, i]) - not_missing
+        println(col_name, " - ", num_missing)
+    end
+end
+
+show_missing(sensor1_data)
+show_missing(sensor2_data)
+
+dropmissing!(sensor1_data)
+dropmissing!(sensor2_data)
+```
+Not too many rows with missing water chemistry data, so I decided to just drop them for now rather than looking into impute methods (e.g., `Impute.jl`)
+
+# Exploratory Data Visualization and Exploration
+Can we see any relationships right off-the-bat?
+```julia
+using Plots
+plotly()
+
+scatter(sensor1_data[:, "fChl, water, in situ, RFU"],
+        sensor1_data[:, "315.90247"], legend = false,
+        ylabel = "fChl", xlabel = "λ 315 nm",
+        title = "Fringe λ (315 nm) on Edge of Spectrum")
+```
+```julia
+scatter(sensor1_data[:, "fChl, water, in situ, RFU"],
+        sensor1_data[:, "412.67889"], legend = false,
+        ylabel = "fChl", xlabel = "λ 412 nm",
+        title = "More Average λ (412 nm)")
+```
+```julia
+scatter(sensor1_data[:, "fChl, water, in situ, RFU"],
+        sensor1_data[:, "913.04602"], legend = false,
+        ylabel = "fChl", xlabel = "λ 913 nm")
+```
+```julia
+scatter(sensor1_data[:, "362.55771"],
+        sensor1_data[:, "365.89523"], legend = false,
+        ylabel = "λ 362 nm", xlabel = "λ 365 nm",
+        title = "Adjacent λ's; Perfect Correlation")
+```
+```julia
+scatter(sensor1_data[:, "734.18652"],
+        sensor1_data[:, "750.85486"], legend = false,
+        ylabel = "λ 734 nm", xlabel = "λ 750 nm",
+        title = "Neighboring λ's; Less Correlation")
+```
+```julia
+scatter(sensor1_data[:, "399.30185"],
+        sensor1_data[:, "750.85486"], legend = false,
+        ylabel = "λ 399 nm", xlabel = "λ 750 nm",
+        title = "Distant λ's; Lower Correlation")
+```
+```julia
+scatter(Array(sensor1_data[10, 20:end]))
+scatter!(Array(sensor1_data[30, 20:end]))
+scatter!(Array(sensor1_data[70, 20:end]))
+scatter!(Array(sensor1_data[100, 20:end]))
+scatter!(Array(sensor1_data[200, 20:end]))
+scatter!(Array(sensor1_data[300, 20:end]))
+scatter!(Array(sensor1_data[400, 20:end]), legend = false)
+xlabel!("Wavelength λ")
+ylabel!("Intensity")
+title!("Spectrograms at Varying Timestamps")
+```
+So, it's clear that many of the observations in the data table do not contribute information to the analysis. For example, the "fringe" wavelengths at the ends of the spectrograms have zero intensity for all timestamps. Also, it's important to note the perfect colinearity between similar wavelengths, since this is why the PCA can reduce the radiometer data matrix down to only two principal components (see PCA below). The column space (rank) of this matrix is quite low due to the high linear dependence of the columns.
+
+I couldn't resist exploring the relationship between solar `azumuth` and some variables in polar coordinates:
+```julia
+θ = (π/180) * sensor1_data[1:1000, "azimuth"]
+r = sensor1_data[1:1000, "fChl, water, in situ, RFU"]
+scatter(θ, r, proj = :polar, m = 2, legend = false) 
+```
+```julia
+θ = (π/180) * sensor1_data[1:1000, "azimuth"]
+r = sensor2_data[1:1000, "solar_alt"]
+scatter(θ, r, proj = :polar, m = 2, legend = false) 
+```
+```julia
+θ = (π/180) * sensor1_data[1:1000, "azimuth"]
+r = sensor2_data[1:1000, 46]
+scatter(θ, r, proj = :polar, m = 2, legend = false) 
+```
+Not much of a relationship between `azimuth` (time of day) and `fChl` measurements. Perfect relationship between `azimuth` and `solar_alt` (obviously) and λ 402 nm.
+
+# Principal Component Analysis
+```julia
+using Statistics, StatsBase, MultivariateStats
+# Sensor 1 data
+pca_s1_data = transpose(Matrix(sensor1_data[:, 20:end]))
+fit_s1 = fit(PCA, pca_s1_data, maxoutdim = 10)
+fit_s1.proj
+# Sensor 2 data
+pca_s2_data = transpose(Matrix(sensor2_data[:, 20:end]))
+fit_s2 = fit(PCA, pca_s2_data, maxoutdim = 10)
+fit_s2.proj
+```
+```julia, echo = false, results = false;
+pc1_s1 = MultivariateStats.transform(fit_s1, pca_s1_data)'[:, 1]
+pc2_s1 = MultivariateStats.transform(fit_s1, pca_s1_data)'[:, 2]
+
+pc1_s2 = MultivariateStats.transform(fit_s2, pca_s2_data)'[:, 1]
+pc2_s2 = MultivariateStats.transform(fit_s2, pca_s2_data)'[:, 2]
+
+loaded_waves_s1 = sortperm(abs.(fit_s1.proj[:, 1]), rev = true)
+loaded_waves_s2 = sortperm(abs.(fit_s2.proj[:, 1]), rev = true)
+```
+```julia
+scatter(sensor1_data[:, "azimuth"], sensor1_data[:, loaded_waves_s1[1]],
+        legend = false, xlabel = "ϕ solar azimuth", ylabel = "λ 395 nm",
+        title = "Azimuth and Highest-Loaded λ 395 nm")
+```
+Very interesting bivariate characteristics, which could have something to do with the angle with which light hits the sensor.
+
+# Principal Component Regression
+Prepare DataFrames for PCR:
+```julia, echo = false, results = false,
+using GLM
+# Top 5 wavelengths
+names(sensor1_data)[loaded_waves_s1[1:5] .+ 20] # λ columns start at index 20
+names(sensor2_data)[loaded_waves_s2[1:5] .+ 20]
+
+lm_s1_data = DataFrame(λ462 = sensor1_data[:, loaded_waves_s1[1] + 20],
+                       λ466 = sensor1_data[:, loaded_waves_s1[2] + 20],
+                       λ479 = sensor1_data[:, loaded_waves_s1[3] + 20],
+                       λ459 = sensor1_data[:, loaded_waves_s1[4] + 20],
+                       fChl = sensor1_data[:, "fChl, water, in situ, RFU"],
+                       pc1 = pc1_s1,
+                       pc2 = pc2_s1,
+                       Turbidity = sensor1_data[:, "Turbidity, FNU"],
+                       DO = sensor1_data[:, "Dissolved Oxygen, mg/L"],
+                       fDOM = sensor1_data[:, "fDOM, water, in situ, QSE"])
+
+lm_s2_data = DataFrame(λ581 = sensor2_data[:, loaded_waves_s2[1] + 20],
+                       λ585 = sensor2_data[:, loaded_waves_s2[2] + 20],
+                       λ578 = sensor2_data[:, loaded_waves_s2[3] + 20],
+                       λ575 = sensor2_data[:, loaded_waves_s2[4] + 20],
+                       pc1 = pc1_s2,
+                       pc2 = pc2_s2,
+                       fChl = sensor2_data[:, "fChl, water, in situ, RFU"],
+                       Turbidity = sensor2_data[:, "Turbidity, FNU"],
+                       DO = sensor2_data[:, "Dissolved Oxygen, mg/L"],
+                       fDOM = sensor2_data[:, "fDOM, water, in situ, QSE"])
+```
+## Modeling Results
+1. __Sensor 1__
+```julia
+lm1_Chl = lm(@formula(fChl ~ pc1), lm_s1_data)
+```
+```julia
+lm1_Turbidity = lm(@formula(Turbidity ~ pc1), lm_s1_data)
+```
+```julia
+lm1_DO = lm(@formula(DO ~ pc1), lm_s1_data)
+```
+
+1. __Sensor 2__
+```julia
+lm2_Chl = lm(@formula(fChl ~ pc1), lm_s2_data)
+```
+```julia
+lm2_Turbidity = lm(@formula(Turbidity ~ pc1), lm_s2_data)
+```
+```julia
+lm2_DO = lm(@formula(DO ~ pc1 + pc2), lm_s2_data)
+```
+
+# Conclusions and Next Steps
+1. __Regression Results:__ My prinary goal was to write the necessary code to perform this analysis on future datasets. That being said, I'm quite pleased to see statistical evidence of an effect of the principal components on some of the water chemistry constituents (for example, `Dissolved Oxygen, mg/L`, p < 0.0001). I'm unsure of the interpretability of the regression coefficients, since I did not zero and scale the data before the analysis, but it's great to see some results even on the raw data from only two of the three sensors.
+
+1. __Next Steps__
+  - test
+
+1. The water chemistry data isn't helpful if the light intensities are zero at night: filter values by day/night WHERE 70 > "azimuth" > 290
+
+1. Standardize data values and light intensities before PCA
+
+1. Fitting the PCA model can't handle `missing` values, so the "checkerboard" UNION needs to be fixed. So, to continue the analysis on a full data set from both sensors, I'll need to JOIN the individual data sets on `datetime_15.
+
+# References
+1. Julia Documentation: [MultivariateStats](https://multivariatestatsjl.readthedocs.io/en/latest/pca.html#)
+
+1. Wikipedia: [Principal Component Regression](https://en.wikipedia.org/wiki/Principal_component_regression)
+
+1. Stack Exchange CrossValidated: [How can top principal components retain the predictive power on a dependent variable (or even lead to better predictions)?](https://stats.stackexchange.com/questions/141864/how-can-top-principal-components-retain-the-predictive-power-on-a-dependent-vari)
+
+1. MATLAB Documentation: [Partial Least Square Regression and Principal Components Regression](https://www.mathworks.com/help/stats/partial-least-squares-regression-and-principal-components-regression.html)
+
+1. Boehmke, B. and Greenwell, B. (2020) Hands-On Machine Learning with R: [Chapter 17 - Principal Components Analysis](https://bradleyboehmke.github.io/HOML/pca.html#finding-principal-components)

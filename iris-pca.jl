@@ -11,7 +11,7 @@ Xte_labels = Vector(iris[2:2:end, 5])
 
 M = fit(PCA, Xtr; maxoutdim = 3)
 Yte = MultivariateStats.transform(M, Xte)
-Xr = reconstruct
+Xr = reconstruct(M, Yte)
 
 setosa = Yte[:, Xte_labels.=="setosa"]
 versigolor = Yte[:, Xte_labels.=="versicolor"]
