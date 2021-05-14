@@ -205,16 +205,17 @@ lm2_DO = lm(@formula(DO ~ pc1 + pc2), lm_s2_data)
 ```
 
 # Conclusions and Next Steps
-1. __Regression Results:__ My prinary goal was to write the necessary code to perform this analysis on future datasets. That being said, I'm quite pleased to see statistical evidence of an effect of the principal components on some of the water chemistry constituents (for example, `Dissolved Oxygen, mg/L`, p < 0.0001). I'm unsure of the interpretability of the regression coefficients, since I did not zero and scale the data before the analysis, but it's great to see some results even on the raw data from only two of the three sensors.
+##### Regression Results
+My prinary goal was to write the necessary code to perform this analysis on future datasets. That being said, I'm quite pleased to see statistical evidence of an effect of the principal components on some of the water chemistry constituents (for example, `Dissolved Oxygen, mg/L`, p < 0.0001). I'm unsure of the interpretability of the regression coefficients, since I did not zero and scale the data before the analysis, but it's great to see some results even on the raw data from only two of the three sensors.
 
-1. __Next Steps__
-  - test
+##### Next Steps
+1. First, I want to research the necessity of zeroing and normalizing the data. If this is required, I can add this step to the preprocessing.
 
-1. The water chemistry data isn't helpful if the light intensities are zero at night: filter values by day/night WHERE 70 > "azimuth" > 290
+1. Further data cleaning by removing data collected at night: The water chemistry data isn't helpful if the light intensities are zero at night, so I will filter values by day/night WHERE 70 > "azimuth" > 290.
 
-1. Standardize data values and light intensities before PCA
+1. Fitting the PCA model can't handle `missing` values, so the "checkerboard" UNION needs to be fixed. So, to continue the analysis on a full data set from both sensors, I'll need to JOIN the individual data sets on `datetime_15. This may not be necessary if we implement the algorithm to account for the three sensors.
 
-1. Fitting the PCA model can't handle `missing` values, so the "checkerboard" UNION needs to be fixed. So, to continue the analysis on a full data set from both sensors, I'll need to JOIN the individual data sets on `datetime_15.
+1. Assuming these steps are taken, we will have a full pipeline to preprocess and conduct a PCR on our future radiometer deployments!
 
 # References
 1. Julia Documentation: [MultivariateStats](https://multivariatestatsjl.readthedocs.io/en/latest/pca.html#)
