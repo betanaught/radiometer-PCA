@@ -213,7 +213,7 @@ My prinary goal was to write the necessary code to perform this analysis on futu
 
 1. Further data cleaning by removing data collected at night: The water chemistry data isn't helpful if the light intensities are zero at night, so I will filter values by day/night WHERE 70 > "azimuth" > 290.
 
-1. Fitting the PCA model can't handle `missing` values, so the "checkerboard" UNION needs to be fixed. So, to continue the analysis on a full data set from both sensors, I'll need to JOIN the individual data sets on `datetime_15. This may not be necessary if we implement the algorithm to account for the three sensors.
+1. Fitting the PCA model can't handle `missing` values, so the "checkerboard" UNION needs to be fixed. So, to continue the analysis on a full data set from both sensors, I'll need to JOIN the individual data sets on `datetime_15`. This may not be necessary if we implement the algorithm to account for the three sensors.
 
 1. Assuming these steps are taken, we will have a full pipeline to preprocess and conduct a PCR on our future radiometer deployments!
 
