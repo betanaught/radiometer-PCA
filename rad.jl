@@ -41,30 +41,33 @@ plotly()
 
 scatter(sensor1_data[:, "fChl, water, in situ, RFU"],
         sensor1_data[:, "315.90247"], legend = false,
-        ylabel = "fChl", xlabel = "λ 315 nm")
+        ylabel = "fChl", xlabel = "Radiant Flux (ϕ) for λ = 315 nm")
 
 scatter(sensor1_data[:, "fChl, water, in situ, RFU"],
         sensor1_data[:, "412.67889"], legend = false,
-        ylabel = "fChl", xlabel = "λ 412 nm")
+        ylabel = "fChl", xlabel = "Radiant Flux (ϕ) for λ 412 nm", alpha = 0.4)
 
 scatter(sensor1_data[:, "fChl, water, in situ, RFU"],
         sensor1_data[:, "913.04602"], legend = false,
-        ylabel = "fChl", xlabel = "λ 913 nm")
+        ylabel = "fChl", xlabel = "Radiant Flux (ϕ) for λ 913 nm", alpha = 0.4)
 
 scatter(sensor1_data[:, "362.55771"],
         sensor1_data[:, "365.89523"], legend = false,
-        ylabel = "λ 362 nm", xlabel = "λ 365 nm",
-        title = "Adjacent λ's; High Correlation")
+        ylabel = "Radiant Flux (ϕ) for λ = 362 nm",
+        xlabel = "Radiant Flux (ϕ) for λ 365 nm",
+        title = "Adjacent λ's; High Correlation", alpha = 0.4)
 
 scatter(sensor1_data[:, "734.18652"],
         sensor1_data[:, "750.85486"], legend = false,
-        ylabel = "λ 734 nm", xlabel = "λ 750 nm",
-        title = "Neighboring λ's; Less Correlation")
+        ylabel = "Radiant Flux (ϕ) for λ 734 nm",
+        xlabel = "Radiant Flux (ϕ) for λ 750 nm",
+        title = "Neighboring λ's; Less Correlation", alpha = 0.4)
 
 scatter(sensor1_data[:, "399.30185"],
         sensor1_data[:, "750.85486"], legend = false,
-        ylabel = "λ 399 nm", xlabel = "λ 750 nm",
-        title = "Distant λ's; Lower Correlation")
+        ylabel = "Radiant Flux (ϕ) for λ 399 nm",
+        xlabel = "Radiant Flux (ϕ) for λ 750 nm",
+        title = "Distant λ's; Lower Correlation", alpha = 0.4)
 
 scatter(Array(sensor1_data[10, 20:end]))
 scatter!(Array(sensor1_data[30, 20:end]))
@@ -74,10 +77,10 @@ scatter!(Array(sensor1_data[200, 20:end]))
 scatter!(Array(sensor1_data[300, 20:end]))
 scatter!(Array(sensor1_data[400, 20:end]), legend = false)
 xlabel!("Wavelength λ")
-ylabel!("Intensity")
+ylabel!("Radiant Flux (ϕ)")
 title!("Spectrograms at Varying Timestamps")
 
-
+# Plotting in polar coordinates
 
 θ = (π/180) * sensor1_data[1:1000, "azimuth"]
 r = sensor1_data[1:1000, "solar_alt"]
@@ -130,17 +133,19 @@ Ytest = MultivariateStats.transform(fit_s1, pca_s2_data'[:, 1][1:191])
 # between fChl and azimuth
 
 scatter(sensor1_data[:, "azimuth"], sensor1_data[:, loaded_waves_s1[1]],
-        legend = false, xlabel = "ϕ solar azimuth", ylabel = "λ 395 nm",
-        title = "Azimuth and Highest-Loaded λ 395 nm")
+        legend = false, xlabel = "ϕ solar azimuth", ylabel = "λ = 395 nm",
+        title = "Azimuth and Highest-Loaded λ 395 nm", alpha = 0.4)
 # Very interesting bivariate distribution; perhaps reflectance interferes
 # Data most likely needs to be thinned to remove observations WHERE 90 < ϕ < 270
 
-scatter(sensor1_data[:, loaded_waves_s1[1]], sensor1_data[:, loaded_waves_s1[2]])
+scatter(sensor1_data[:, loaded_waves_s1[1]],
+        sensor1_data[:, loaded_waves_s1[2]],
+        alpha = 0.2)
 
 scatter3d(sensor1_data[4:100, "datetime_15"],
           sensor1_data[4:100, loaded_waves_s1[1]],
-          sensor1_data[4:100, loaded_waves_s1[2]], legend = false)
-
+          sensor1_data[4:100, loaded_waves_s1[2]],
+          legend = false)
 
 
 """
